@@ -6,6 +6,7 @@ import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
 import java.time.LocalDateTime
+import java.util.Optional
 
 @Service
 class EmployeeServiceImpl(
@@ -70,14 +71,9 @@ class EmployeeServiceImpl(
          */
         val pageable = PageRequest.of(page,size, Sort.by(Sort.Direction.DESC,"id"))
         return employeeCrud.findAll(pageable)
-            .stream().map {
-                EmployeeBoundary(
-                it.name,
-                it.email,
-                //no password here :)
-                it.birthTimestamp,
-                it.roles
-            )}.toList()
+            .stream()
+            .map {EmployeeBoundary(it)}
+            .toList()
     }
 
     override fun getByDomain(email:String ,page: Int ,size: Int) : List<EmployeeBoundary>{
@@ -96,15 +92,9 @@ class EmployeeServiceImpl(
 
         val employeesOfDomain = EmployeeCrud.findByEmailDomain(domain,pageable)
 
-        return employeesOfDomain.map {
-            EmployeeBoundary(
-                it.name,
-                it.email,
-                //no password here :)
-                it.birthTimestamp,
-                it.roles
-            )
-        }.toList()
+        return employeesOfDomain
+            .map {EmployeeBoundary(it)}
+            .toList()
     }
 
     override fun getByRole(role:String,page:Int,size:Int) : List<EmployeeBoundary>{
@@ -119,42 +109,27 @@ class EmployeeServiceImpl(
         val pageable = PageRequest.of(page,size, Sort.by(Sort.Direction.DESC,"id"))
 
         return employeeCrud.findAllByRolesContains(EmployeeBoundary.rolesToString(listOf(role.trim()))!!,pageable)
-            .stream().map {
-                EmployeeBoundary(
-                    it.name,
-                    it.email,
-                    //no password here :)
-                    it.birthTimestamp,
-                    it.roles
-                )
-            }.toList()
+            .stream()
+            .map {EmployeeBoundary(it)}
+            .toList()
     }
 
     override fun getByAge(age:Int,page: Int,size: Int) : List<EmployeeBoundary>{
-        /*
-        פעולה שמחזירה את פרטי העובדים, שהגיל שלהם בשנים, הועבר כפרמטר ageInYears.
+        /*פעולה שמחזירה את פרטי העובדים, שהגיל שלהם בשנים, הועבר כפרמטר ageInYears.
         למשל, אם פעולה זו הופעלה, כדי לחפש עובדים בני 30 ב-1 באפריל 2025, היא תחזיר את כל העובדים שיום הולדתם ה-30 חל בין 1 באפריל 2024 ל-1 באפריל 2025
         פעולה זו תומכת ב-pagination. שימו לב כי גם פעולה זו לא חושפת סיסמאות.
-        אם לא קיימים בשירות עובדים בגיל המבוקש, הפעולה תחזיר מערך ריק
-         */
-
-
+        אם לא קיימים בשירות עובדים בגיל המבוקש, הפעולה תחזיר מערך ריק*/
         val pageable = PageRequest.of(page,size, Sort.by(Sort.Direction.DESC,"id"))
 
         val currentDateTime: LocalDateTime = LocalDateTime.now()
-        val minForAge = currentDateTime.minusYears(age.toLong())
-        val maxForAge = minForAge.plusYears(1).minusNanos(1)
+        val minForAge = currentDateTime.minusYears((age+1).toLong())
+        val maxForAge = minForAge.plusYears(1).minusDays(1)
 
         return employeeCrud
             .findAllByBirthTimestampBetween(minForAge,maxForAge,pageable)
             .stream()
-            .map {EmployeeBoundary(
-                it.name,
-                it.email,
-                //no password here :)
-                it.birthTimestamp,
-                it.roles
-            ) }.toList()
+            .map {EmployeeBoundary(it)}
+            .toList()
     }
 
     override fun deleteAll() {
@@ -164,19 +139,84 @@ class EmployeeServiceImpl(
         return employeeCrud.deleteAll()
     }
 
+    @org.springframework.transaction.annotation.Transactional(readOnly = false)
+    override fun updateManagerEmailForEmployee(email: String,managerEmail: ManagerEmailBoundary){
+        /*פעולה שמקבלת בקלט JSON במבנה של ManagerEmailBoundary, שהמבנה שלו מפורט בהמשך.
+        פעולה זו תיצור קשר בין העובדת, שכתובת הדואל שלה הועברה בפרמטר employeeEmail ב-Path, לבין המנהלת שלה, שכתובת הדואל שלה מועברת ב-JSON שנשלח לפעולה.
+        אם כבר קיים קשר כזה בין עובדת מסוימת למנהלת מסוימת, הפעולה לא תשנה דבר בשירות
+        במידה ובשירות מוגדרת מנהלת אחרת לעובדת, השירות יקשר את העובדת למנהלת החדשה, שהמזהה שלה הועבר ב-JSON לשירות
+        בכל מקרה, לכל עובדת, שמנוהלת בשירות שלך, תהיה לכל היותר מנהלת אחת.
+        אם אחת מכתובות הדואל של העובדים לא קיימת בשירות, הפעולה תחזיר סטטוס שגיאה מתאים*/
+
+        var manager = managerEmail.email
+            ?.let { employeeCrud.findByEmail(it).orElse(null) }
+            ?: throw InvalidEmailException("there are no employee with given manager email")
+
+        val employee = employeeCrud.findByEmail(email).orElseThrow {
+            InvalidEmailException("Employee with email $email not found")
+        }
+
+        employee.managerEmail = managerEmail.email
+        employeeCrud.save(employee)
+    }
+
+
+    override fun getManagerOfEmployee(email: String): EmployeeBoundary{
+        /*
+        פעולה שמחזירה JSON עם פרטי המנהלת של עובדת, שהדואל שלה הועבר כפרמטר employeeEmail ב-Path
+        פרטי המנהלת אמורים לכלול את המידע עליה, כולל דואל, שם, תפקידים ותאריך לידה, באותו מבנה JSON שמוחזר בפעולות אחרות שמחזירות פרטי עובדים
+        במידה וכתובת הדואל לא מתאימה לעובדים שהוגדרו בשירות, או במידה ולא מוגדרת מנהלת לעובדת המבוקשת, הפעולה תחזיר שגיאה מתאימה
+        שימו לב כי גם פעולה זו לא חושפת את הסיסמה של המנהלת, אלא מחזירה את פרטי המנהלת, השמורים בשירות, פרט לסיסמא
+         */
+        val employee = email
+            .let { employeeCrud.findByEmail(it).orElse(null) }
+            ?: throw EmployeeNotFoundException("there are no employee with given email")
+
+        val manager = employee.managerEmail
+            ?.let { employeeCrud.findByEmail(it).orElse(null) }
+            ?: throw EmployeeNotFoundException("the employee manager doesnt exist")
+
+        return EmployeeBoundary(manager)
+    }
+
+    override fun getAllEmployeesOfManager(managerEmail: ManagerEmailBoundary,page: Int,size: Int): List<EmployeeBoundary>{
+        /*
+    פעולה שמחזירה מערך של עובדים, שכפופים למנהלת, שהדואל שלה מוגדר בפרמטר managerEmail ב-Path
+    פרטי העובדים שמוחזרים, אמורים לכלול את המידע שלהם, כולל דואל, שם, תפקידים ותאריך לידה, באותו מבנה JSON שמוחזר בפעולות אחרות שמחזירות פרטי עובדים
+    פעולה זו תומכת ב-pagination.
+    שימו לב כי גם פעולה זו לא חושפת סיסמאות.
+    אם לא קיימת בשירות מנהלת, שהדואל שלה מוגדר כפרמטר, או אם לא קיימים בשירות עובדים שכפופים למנהלת זו, הפעולה תחזיר מערך ריק
+     */
+        val pageable = PageRequest.of(page,size, Sort.by(Sort.Direction.DESC,"id"))
+        if (managerEmail.email == null){
+            throw  InvalidEmailException("invalid email")
+        }
+        return employeeCrud
+            .findAllByManagerEmail(managerEmail.email,pageable)
+            .stream()
+            .map { EmployeeBoundary(it) }
+            .toList()
+    }
+
+    @org.springframework.transaction.annotation.Transactional(readOnly = false)
+    override fun deleteEmployeeManagerConnection(email: String){
+        /*
+        DELETE /employees/{employeeEmail}/manager
+
+    פעולה שמנתקת את הקשר בין עובדת מסוימת, שהדואל שלה מוגדר ב-Path, לבין המנהלת שלה, במידה ויש קשר כזה בינהן
+         */
+
+        val employee = employeeCrud.findByEmail(email).orElseThrow {
+            InvalidEmailException("Employee not found")
+        }
+
+        employee.managerEmail = null
+        employeeCrud.save(employee)
+    }
 
     //////////////////////////
     //  utils
     /////////////////////////
-
-    /*
-        private val passwordEncoder = BCryptPasswordEncoder()
-
-    fun verifyPassword(rawPassword: String, hashedPassword: String): Boolean {
-        return passwordEncoder.matches(rawPassword, hashedPassword)
-    }
-     */
-
     fun getDomain(email: String): String{
         if(!email.matches(Regex("^[A-Za-z0-9]+@.+$")))
             throw(InvalidEmailException("invalid email format"))

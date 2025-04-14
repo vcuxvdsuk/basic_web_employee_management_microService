@@ -13,12 +13,12 @@ class EmployeeEntity (
     var name:String?,
     var email:String?,
 
-    //@Column(nullable = false)
     var passwordHash: String?,
     @Temporal(TemporalType.TIMESTAMP)
     var birthTimestamp: LocalDateTime?,
     var roles: String?,
-    @ManyToOne(targetEntity = EmployeeEntity::class, fetch = FetchType.EAGER, optional = true) var parent: EmployeeEntity?){
+
+    var managerEmail: String?){
 
     constructor():this(null,null,null,null,null,null,null)
 

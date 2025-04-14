@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
@@ -32,7 +33,7 @@ class Controller(
         @RequestParam("password") password: String
     ):EmployeeBoundary{
         if(email.isEmpty() || password.isEmpty())
-            throw (InvalidInputException("email already exist"))
+            throw InvalidInputException("email and password cant be empty")
 
         return  employeeService.getEmployee(email,password)
     }
@@ -72,9 +73,54 @@ class Controller(
     @DeleteMapping(
         produces = [MediaType.APPLICATION_JSON_VALUE]
     )
-    fun deleteAll(){
-        return employeeService.deleteAll()
+    fun deleteAll(): ResponseEntity<Void> {
+        employeeService.deleteAll()
+        return ResponseEntity.noContent().build()
+    }
+
+    @PutMapping(
+        path = ["/{employeeEmail}/manager"],
+        consumes = [MediaType.APPLICATION_JSON_VALUE]
+    )
+    fun updateManagerEmailForEmployee(
+        @PathVariable("employeeEmail") employeeEmail: String,
+        @Valid @RequestBody managerEmailBoundary: ManagerEmailBoundary) {
+        /* PUT /employees/{employeeEmail}/manager  */
+        if (employeeEmail.trim().isEmpty()) {
+            throw InvalidEmailException("employeeEmail must contain at least 1 char")
+        }
+        employeeService.updateManagerEmailForEmployee(employeeEmail, managerEmailBoundary)
     }
 
 
+    @GetMapping(
+        path = ["/{employeeEmail}/manager"],
+        produces = [MediaType.APPLICATION_JSON_VALUE])
+    fun getManagerOfEmployee(
+        @PathVariable("employeeEmail") employeeEmail: String) : EmployeeBoundary{
+        /* GET /employees/{employeeEmail}/manager */
+        return employeeService.getManagerOfEmployee(employeeEmail)
+    }
+
+    @GetMapping(
+        path = ["/{managerEmail}/subordinates"],
+        produces = [MediaType.APPLICATION_JSON_VALUE])
+    fun getEmployeesOfManager(
+        @PathVariable("managerEmail") managerEmail: String,
+        @RequestParam("page", defaultValue = "0") page:Int,
+        @RequestParam("size", defaultValue = "5") size:Int): List<EmployeeBoundary>{
+        /* GET /employees/{managerEmail}/subordinates?page={page}&size={size} */
+        val managerEmailB = ManagerEmailBoundary(managerEmail)
+        return employeeService.getAllEmployeesOfManager(managerEmailB,page,size)
+    }
+
+    @DeleteMapping(
+        path = ["/{employeeEmail}/manager"],
+        produces = [MediaType.APPLICATION_JSON_VALUE]
+    )
+    fun deleteEmployeeManagerConnection(
+        @PathVariable("employeeEmail") employeeEmail: String){
+        /* DELETE /employees/{employeeEmail}/manager */
+        return employeeService.deleteEmployeeManagerConnection(employeeEmail)
+    }
 }

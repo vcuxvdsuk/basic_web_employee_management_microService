@@ -46,6 +46,7 @@ class EmployeeBoundary (
             rv.passwordHash = this.password
             rv.birthTimestamp = dateInfoToDate(this.birthDate)
             rv.roles = rolesToString(this.roles)
+            rv.managerEmail = null
         } catch (e: Exception) {
             println("toEntity failed: ${e.message}")
             throw e
