@@ -1,8 +1,6 @@
 package il.ac.afeka.cloud.WebMVCEmployees
 
-import jakarta.validation.Valid
 import jakarta.validation.constraints.*
-import java.time.LocalDateTime
 
 class ManagerEmailBoundary(
         @field:Email(message = "Invalid email format")
