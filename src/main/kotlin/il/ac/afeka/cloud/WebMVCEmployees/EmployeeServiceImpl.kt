@@ -86,8 +86,7 @@ class EmployeeServiceImpl(
         פעולה זו תומכת ב-pagination. שימו לב כי גם פעולה זו לא חושפת סיסמאות
         אם לא קיימים בשירות עובדים עם ה-domain המבוקש, הפעולה תחזיר מערך ריק
          */
-        var domain = ""
-        domain = if (email.matches(regex = Regex("^.*@.+$"))){
+        val domain = if (email.matches(regex = Regex("^.*@.+$"))){
             getDomain(email)
         }else{
             email

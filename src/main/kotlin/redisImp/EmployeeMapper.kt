@@ -1,4 +1,4 @@
 package redisImp
 
-fun RedisEmployeeEntity.toBoundary(): redisImp.EmployeeBoundary =
+fun RedisEmployeeEntity.toBoundary(): EmployeeBoundary =
     EmployeeBoundary(this)
