@@ -164,18 +164,9 @@ class EmployeeServiceImpl(
         return employeeCrud.deleteAll()
     }
 
-
     //////////////////////////
     //  utils
     /////////////////////////
-
-    /*
-        private val passwordEncoder = BCryptPasswordEncoder()
-
-    fun verifyPassword(rawPassword: String, hashedPassword: String): Boolean {
-        return passwordEncoder.matches(rawPassword, hashedPassword)
-    }
-     */
 
     fun getDomain(email: String): String{
         if(!email.matches(Regex("^[A-Za-z0-9]+@.+$")))
