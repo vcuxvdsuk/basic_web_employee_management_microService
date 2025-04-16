@@ -11,70 +11,76 @@ import java.net.Socket
 
 fun main() {
 
-    // Test if PostgreSQL is reachable
+    // Test if PostgreSQL is reachable (via port check)
     try {
-        Socket("localhost", 57984).use {
-            println("✅ PostgreSQL is reachable on port 57984")
+        Socket("localhost", 57952).use {
+            println("✅ PostgreSQL is reachable on port 57952")
         }
     } catch (e: Exception) {
         println("❌ PostgreSQL is NOT reachable: ${e.message}")
+        return
     }
 
-    // Test data for EmployeeBoundary
-    val employeeBoundary = EmployeeBoundary(
-        email = "test@example.com",
-        name = "John",
-        password = "Password123",
-        birthDate = LocalDateTime.now().toDateInfo(),
-        roles = listOf("Admin")
-    )
-
-    // Initialize RestTemplate
     val restTemplate = RestTemplate()
-
-    // Create headers and JSON body for the POST request
     val headers = HttpHeaders().apply {
         contentType = MediaType.APPLICATION_JSON
     }
-
     val objectMapper = jacksonObjectMapper().apply {
         registerKotlinModule()
     }
-    val body = objectMapper.writeValueAsString(employeeBoundary)
-    println("Sending JSON body:\n$body")
 
-    val entityForPost = HttpEntity(body, headers)
+    var lastEmail: String? = null
+    var lastBody: String? = null
 
-    // Measure POST API call time
+    // Measure POST loop time
     val postStartTime = System.currentTimeMillis()
 
-    try {
-        val postResponse = restTemplate.postForEntity(
-            "http://localhost:8080/employees",
-            entityForPost,
-            String::class.java
+    for (i in 0 until 100) {
+        val email = "test$i@example.com"
+        val employeeBoundary = EmployeeBoundary(
+            email = email,
+            name = "John",
+            password = "Password123",
+            birthDate = LocalDateTime.now().toDateInfo(),
+            roles = listOf("Admin")
         )
-        println("POST Response: ${postResponse.body}")
-    } catch (e: Exception) {
-        println("POST Error: ${e.message}")
+
+        val body = objectMapper.writeValueAsString(employeeBoundary)
+        val entity = HttpEntity(body, headers)
+
+        try {
+            restTemplate.postForEntity(
+                "http://localhost:8080/employees",
+                entity,
+                String::class.java
+            )
+        } catch (e: Exception) {
+            println("❌ POST failed for $email: ${e.message}")
+        }
+
+        lastEmail = email
+        lastBody = body
     }
 
     val postEndTime = System.currentTimeMillis()
-    println("POST API call took ${postEndTime - postStartTime} ms")
+    println("⏱️ POST API calls (100 inserts) took ${postEndTime - postStartTime} ms")
 
-    // Measure GET API call time
+    // Print the last posted body for reference
+    println("📤 Last inserted JSON:\n$lastBody")
+
+    // Measure GET all employees
     val getStartTime = System.currentTimeMillis()
 
     try {
-        val getResponse = restTemplate.getForObject(
+        val response = restTemplate.getForObject(
             "http://localhost:8080/employees",
             String::class.java
         )
-        println("GET Response: $getResponse")
+        println("✅ GET Response:\n$response")
     } catch (e: Exception) {
-        println("GET Error: ${e.message}")
+        println("❌ GET Error: ${e.message}")
     }
 
     val getEndTime = System.currentTimeMillis()
-    println("GET API call took ${getEndTime - getStartTime} ms")
+    println("⏱️ GET API call took ${getEndTime - getStartTime} ms")
 }
