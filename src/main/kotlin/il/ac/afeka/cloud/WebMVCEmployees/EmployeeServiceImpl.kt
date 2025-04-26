@@ -1,7 +1,5 @@
 package il.ac.afeka.cloud.WebMVCEmployees
 
-import org.apache.commons.logging.LogFactory
-import org.apache.commons.logging.Log
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service

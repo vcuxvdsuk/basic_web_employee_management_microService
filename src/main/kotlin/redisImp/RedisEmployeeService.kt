@@ -2,7 +2,6 @@ package redisImp
 
 import il.ac.afeka.cloud.WebMVCEmployees.EmployeeNotFoundException
 import il.ac.afeka.cloud.WebMVCEmployees.InvalidInputException
-import org.apache.commons.logging.LogFactory
 import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.stereotype.Service
 import java.time.LocalDateTime
