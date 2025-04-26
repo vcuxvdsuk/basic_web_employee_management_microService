@@ -5,8 +5,7 @@ import jakarta.validation.Valid
 import jakarta.validation.constraints.*
 import java.time.LocalDateTime
 
-
-class EmployeeBoundary (
+data class EmployeeBoundary (
     @field:NotBlank(message = "email cannot be empty")
     @field:Email(message = "Invalid email format")
     val email: String?,
@@ -32,21 +31,30 @@ class EmployeeBoundary (
 
     constructor(): this(null,null,null,null,null)
 
-    constructor(entity:RedisEmployeeEntity):
-            this(entity.name,entity.email,"you dont get the password",entity.birthTimestamp,entity.roles)
+    constructor(entity: RedisEmployeeEntity):
+            this(entity.email, entity.name, "you dont get the password", entity.birthTimestamp, entity.roles)
 
     constructor( name:String?, email:String?, createdTimestamp: LocalDateTime?, roles: List<String>):
             this(name,email,"you dont get the password",dateToDateInfo(createdTimestamp),roles)
 
 
-    fun toRedisEntity(): RedisEmployeeEntity =
-        RedisEmployeeEntity(
-            email = this.email!!,
-            name = this.name,
-            password = this.password,
-            birthTimestamp = this.birthDate,
-            roles = this.roles ?: listOf()
+    fun toRedisEntity(): RedisEmployeeEntity {
+        requireNotNull(email) { "Email must not be null" }
+        requireNotNull(name) { "Name must not be null" }
+        requireNotNull(password) { "Password must not be null" }
+        requireNotNull(birthDate) { "BirthDate must not be null" }
+        require(!roles.isNullOrEmpty()) { "Roles must not be null or empty" }
+
+        return RedisEmployeeEntity(
+            email = email,
+            name = name,
+            password = password,
+            birthTimestamp = birthDate,
+            roles = roles!!
         )
+    }
+
+/*
 
     override fun toString(): String {
         return  "{" +
@@ -56,6 +64,7 @@ class EmployeeBoundary (
                 "roles:$roles, " +
                 "}"
     }
+ */
 
 
     fun isDateEmpty(date: DateInfo): Boolean {

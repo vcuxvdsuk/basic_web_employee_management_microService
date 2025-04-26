@@ -2,11 +2,13 @@ package redisImp
 
 
 import org.springframework.boot.autoconfigure.SpringBootApplication
-import org.springframework.boot.runApplication
+import org.springframework.boot.builder.SpringApplicationBuilder
 
 @SpringBootApplication
 class redisApplication
 
 fun main(args: Array<String>) {
-    runApplication<redisApplication>(*args)
+    SpringApplicationBuilder(redisApplication::class.java)
+        .profiles("serviceRedis")
+        .run(*args)
 }

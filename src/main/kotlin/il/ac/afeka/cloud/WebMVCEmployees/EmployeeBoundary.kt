@@ -32,10 +32,10 @@ class EmployeeBoundary (
     constructor(): this(null,null,null,null,null)
 
     constructor(entity:EmployeeEntity):
-            this(entity.name,entity.email,"you dont get the password",dateToDateInfo(entity.birthTimestamp),stringToRoles(entity.roles))
+            this(entity.email,entity.name,"you dont get the password",dateToDateInfo(entity.birthTimestamp),stringToRoles(entity.roles))
 
-    constructor( name:String?, email:String?, createdTimestamp: LocalDateTime?, roles: String?):
-            this(name,email,"you dont get the password",dateToDateInfo(createdTimestamp),stringToRoles(roles))
+    constructor(email:String?,name:String?, createdTimestamp: LocalDateTime?, roles: String?):
+            this(email,name,"you dont get the password",dateToDateInfo(createdTimestamp),stringToRoles(roles))
 
     fun toEntity(): EmployeeEntity {
         val rv = EmployeeEntity()

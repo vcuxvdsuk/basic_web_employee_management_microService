@@ -13,8 +13,8 @@ fun main() {
 
     // Test if PostgreSQL is reachable (via port check)
     try {
-        Socket("localhost", 57952).use {
-            println("✅ PostgreSQL is reachable on port 57952")
+        Socket("localhost", 5432).use {
+            println("✅ PostgreSQL is reachable on port 5432")
         }
     } catch (e: Exception) {
         println("❌ PostgreSQL is NOT reachable: ${e.message}")
@@ -29,58 +29,63 @@ fun main() {
         registerKotlinModule()
     }
 
-    var lastEmail: String? = null
-    var lastBody: String? = null
 
-    // Measure POST loop time
-    val postStartTime = System.currentTimeMillis()
+    // Insert 100 employees
+    val postStart = System.currentTimeMillis()
+    restTemplate.delete("http://localhost:8081/employees")
 
     for (i in 0 until 100) {
-        val email = "test$i@example.com"
-        val employeeBoundary = EmployeeBoundary(
-            email = email,
+        val employee = EmployeeBoundary(
+            email = "test$i@example.com",
             name = "John",
             password = "Password123",
             birthDate = LocalDateTime.now().toDateInfo(),
             roles = listOf("Admin")
         )
-
-        val body = objectMapper.writeValueAsString(employeeBoundary)
+        val body = objectMapper.writeValueAsString(employee)
         val entity = HttpEntity(body, headers)
 
         try {
-            restTemplate.postForEntity(
-                "http://localhost:8080/employees",
-                entity,
+            restTemplate.postForEntity("http://localhost:8081/employees", entity, String::class.java)
+        } catch (e: Exception) {
+            println("❌ POST failed for test$i@example.com: ${e.message}")
+        }
+    }
+    val postEnd = System.currentTimeMillis()
+    println("⏱️ PostgreSQL API POST (100 inserts) took ${postEnd - postStart} ms")
+
+    // Repeated GET requests to simulate caching scenario
+    val repeatedEmails = listOf(
+        "test0@example.com", "test0@example.com", "test0@example.com",
+        "test50@example.com", "test50@example.com",
+        "test99@example.com", "test99@example.com",
+        "test20@example.com", "test70@example.com",
+        "test0@example.com", "test50@example.com"
+    )
+
+    val getRepeatedStart = System.currentTimeMillis()
+    for (email in repeatedEmails) {
+        try {
+            val response = restTemplate.getForObject(
+                "http://localhost:8081/employees/$email?password=Password123",
                 String::class.java
             )
+            println("📥 GET $email → ${response?.substring(0..minOf(50, response.length - 1))}...")
         } catch (e: Exception) {
-            println("❌ POST failed for $email: ${e.message}")
+            println("❌ GET failed for $email: ${e.message}")
         }
-
-        lastEmail = email
-        lastBody = body
     }
+    val getRepeatedEnd = System.currentTimeMillis()
+    println("⏱️ Repeated GETs took ${getRepeatedEnd - getRepeatedStart} ms")
 
-    val postEndTime = System.currentTimeMillis()
-    println("⏱️ POST API calls (100 inserts) took ${postEndTime - postStartTime} ms")
-
-    // Print the last posted body for reference
-    println("📤 Last inserted JSON:\n$lastBody")
-
-    // Measure GET all employees
-    val getStartTime = System.currentTimeMillis()
-
+    // Final: GET all employees
+    val getAllStart = System.currentTimeMillis()
     try {
-        val response = restTemplate.getForObject(
-            "http://localhost:8080/employees",
-            String::class.java
-        )
-        println("✅ GET Response:\n$response")
+        val allResponse = restTemplate.getForObject("http://localhost:8081/employees", String::class.java)
+        println("✅ GET all employees, size: ${allResponse?.length} chars")
     } catch (e: Exception) {
-        println("❌ GET Error: ${e.message}")
+        println("❌ GET ALL failed: ${e.message}")
     }
-
-    val getEndTime = System.currentTimeMillis()
-    println("⏱️ GET API call took ${getEndTime - getStartTime} ms")
+    val getAllEnd = System.currentTimeMillis()
+    println("⏱️ GET ALL took ${getAllEnd - getAllStart} ms")
 }

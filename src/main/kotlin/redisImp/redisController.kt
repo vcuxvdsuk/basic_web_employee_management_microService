@@ -1,82 +1,100 @@
 package redisImp
 
+import il.ac.afeka.cloud.WebMVCEmployees.EmployeeNotFoundException
 import il.ac.afeka.cloud.WebMVCEmployees.InvalidCriteriaException
 import il.ac.afeka.cloud.WebMVCEmployees.InvalidInputException
 import jakarta.validation.Valid
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
-import org.springframework.web.bind.annotation.DeleteMapping
-import org.springframework.web.bind.annotation.GetMapping
-import org.springframework.web.bind.annotation.PathVariable
-import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.RequestBody
-import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.web.bind.annotation.RequestParam
-import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.bind.annotation.*
 
 @RestController
 @RequestMapping(path = [ "/employees"])
-class redisController(
-    val employeeService:EmployeeService) {
+class RedisController(
+    val employeeService: RedisEmployeeService
+) {
 
     @PostMapping(
         consumes = [MediaType.APPLICATION_JSON_VALUE],
-        produces = [MediaType.APPLICATION_JSON_VALUE])
-    fun create(@Valid @RequestBody newEmployee: EmployeeBoundary): ResponseEntity<EmployeeBoundary>{
-        return ResponseEntity.ok(employeeService.createEmployee(newEmployee))
+        produces = [MediaType.APPLICATION_JSON_VALUE]
+    )
+    fun create(@Valid @RequestBody newEmployee: EmployeeBoundary): ResponseEntity<Any> {
+        return try {
+            ResponseEntity.ok(employeeService.createEmployee(newEmployee))
+        } catch (e: InvalidInputException) {
+            ResponseEntity.badRequest().body(
+                mapOf("error" to "Invalid Input", "message" to e.message)
+            )
+        }
     }
+
 
     @GetMapping(
         path = ["/{employeeEmail}"],
-        produces = [MediaType.APPLICATION_JSON_VALUE])
+        produces = [MediaType.APPLICATION_JSON_VALUE]
+    )
     fun getByEmailAndPassword(
-        @PathVariable("employeeEmail") email:String,
+        @PathVariable("employeeEmail") email: String,
         @RequestParam("password") password: String
-    ):EmployeeBoundary{
-        if(email.isEmpty() || password.isEmpty())
-            throw (InvalidInputException("email already exist"))
-
-        return  employeeService.getEmployee(email,password)
+    ): ResponseEntity<Any> {
+        return try {
+            val employee = employeeService.getEmployee(email, password)
+            ResponseEntity.ok(employee)
+        } catch (e: EmployeeNotFoundException) {
+            ResponseEntity.status(404).body(
+                mapOf("error" to "Employee Not Found", "message" to e.message)
+            )
+        }
     }
 
     @GetMapping(
         produces = [MediaType.APPLICATION_JSON_VALUE],
-        params = ["!criteria", "!value"])
+        params = ["!criteria", "!value"]
+    )
     fun getAll(
-        @RequestParam("page", defaultValue = "0") page:Int,
-        @RequestParam("size", defaultValue = "5") size:Int
-        ):List<EmployeeBoundary>{
-        return  employeeService.getAll(page,size)
+        @RequestParam("page", defaultValue = "0") page: Int,
+        @RequestParam("size", defaultValue = "5") size: Int
+    ): ResponseEntity<List<EmployeeBoundary>> {
+        val employees = employeeService.getAll(page, size)
+        return ResponseEntity.ok(employees)
     }
 
-
     @GetMapping(
-    produces = [MediaType.APPLICATION_JSON_VALUE],
-    params = ["criteria", "value"])
-    fun getByCriteria (
-        @RequestParam("criteria", required = false) criteria:String,
-        @RequestParam("value", required = false) value:String,
-        @RequestParam("page", defaultValue = "0") page:Int,
-        @RequestParam("size", defaultValue = "5") size:Int
-        ):List<EmployeeBoundary>{
-        return when (criteria){
-            "byEmailDomain" -> employeeService.getByDomain(value,page,size)
-            "byRole" -> employeeService.getByRole(value,page,size)
-            "byAge" ->  {
-                val age = value.toIntOrNull()
-                    ?: throw IllegalArgumentException("Age must be a valid number")
-                employeeService.getByAge(age, page, size)
+        produces = [MediaType.APPLICATION_JSON_VALUE],
+        params = ["criteria", "value"]
+    )
+    fun getByCriteria(
+        @RequestParam("criteria", required = false) criteria: String?,
+        @RequestParam("value", required = false) value: String?,
+        @RequestParam("page", defaultValue = "0") page: Int,
+        @RequestParam("size", defaultValue = "5") size: Int
+    ): ResponseEntity<List<EmployeeBoundary>> {
+        return try {
+            val employees = when (criteria) {
+                "byEmailDomain" -> employeeService.getByDomain(value.orEmpty(), page, size)
+                "byRole" -> employeeService.getByRole(value.orEmpty(), page, size)
+                "byAge" -> {
+                    val age = value?.toIntOrNull()
+                        ?: throw IllegalArgumentException("Age must be a valid number")
+                    employeeService.getByAge(age, page, size)
+                }
+                else -> throw InvalidCriteriaException("Invalid criteria provided")
             }
-            else -> throw InvalidCriteriaException("Criteria option not valid")
+            ResponseEntity.ok(employees)
+        } catch (e: IllegalArgumentException) {
+            ResponseEntity.badRequest().body(emptyList())
+        } catch (e: InvalidCriteriaException) {
+            ResponseEntity.badRequest().body(emptyList())
         }
     }
 
-    @DeleteMapping(
-        produces = [MediaType.APPLICATION_JSON_VALUE]
-    )
-    fun deleteAll(){
-        return employeeService.deleteAll()
+    @DeleteMapping(produces = [MediaType.APPLICATION_JSON_VALUE])
+    fun deleteAll(): ResponseEntity<Void> {
+        return try {
+            employeeService.deleteAll()
+            ResponseEntity.noContent().build()
+        } catch (e: Exception) {
+            ResponseEntity.status(500).build()
+        }
     }
-
-
 }

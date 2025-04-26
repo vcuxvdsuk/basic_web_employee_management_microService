@@ -9,11 +9,8 @@ import java.time.LocalDateTime
 
 @Service
 class EmployeeServiceImpl(
-    val EmployeeCrud: EmployeeCrud,
     private val employeeCrud: EmployeeCrud,
 ) : EmployeeService {
-    val logger:Log = LogFactory.getLog(EmployeeServiceImpl::class.java)
-
 
     @org.springframework.transaction.annotation.Transactional(readOnly = false)
     override fun createEmployee(employee: EmployeeBoundary): EmployeeBoundary{
@@ -23,7 +20,7 @@ class EmployeeServiceImpl(
        במידה וכבר קיימים פרטים עם הדואל שהועבר לשירות, הפעולה תכשל
         */
 
-        if (this.EmployeeCrud.existsByEmail(employee.email!!))
+        if (this.employeeCrud.existsByEmail(employee.email!!))
             throw (InvalidInputException("info already exist"))
 
         if(!employee.password!!.trim().contains(Regex("[A-Z]+")) ||
@@ -40,7 +37,7 @@ class EmployeeServiceImpl(
             )
             throw (InvalidInputException("roles must contain at least one entry"))
 
-        return EmployeeBoundary(this.EmployeeCrud.save(employee.toEntity()))
+        return EmployeeBoundary(this.employeeCrud.save(employee.toEntity()))
     }
 
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
@@ -52,13 +49,13 @@ class EmployeeServiceImpl(
         במידה והנתונים לא קיימים בשירות, בדיוק כפי שהועברו בפרמטרים, הפעולה תחזיר שגיאה מתאימה
         שימו לב כי פעולה זו לא חושפת סיסמאות, אלא מחזירה את כל הפרטים השמורים בשירות, פרט לסיסמא
          */
-        val employeeE = this.EmployeeCrud.findByEmail(email)
+        val employeeE = this.employeeCrud.findByEmail(email)
             .orElseThrow { EmployeeNotFoundException("Employee with given credentials not found") }
 
-        val employeeB = EmployeeBoundary(employeeE)
-        if (password != employeeB.password!!){
+        if (password != employeeE.passwordHash){
             throw(EmployeeNotFoundException("Employee with given credential not found"))
         }
+        val employeeB = EmployeeBoundary(employeeE)
         employeeB.password = null
         return employeeB
     }
@@ -70,14 +67,9 @@ class EmployeeServiceImpl(
          */
         val pageable = PageRequest.of(page,size, Sort.by(Sort.Direction.DESC,"id"))
         return employeeCrud.findAll(pageable)
-            .stream().map {
-                EmployeeBoundary(
-                it.name,
-                it.email,
-                //no password here :)
-                it.birthTimestamp,
-                it.roles
-            )}.toList()
+            .stream()
+            .map {EmployeeBoundary(it)}
+            .toList()
     }
 
     override fun getByDomain(email:String ,page: Int ,size: Int) : List<EmployeeBoundary>{
@@ -93,17 +85,11 @@ class EmployeeServiceImpl(
         }
         val pageable = PageRequest.of(page,size, Sort.by(Sort.Direction.DESC,"id"))
 
-        val employeesOfDomain = EmployeeCrud.findByEmailDomain(domain,pageable)
+        val employeesOfDomain = employeeCrud.findByEmailDomain(domain,pageable)
 
-        return employeesOfDomain.map {
-            EmployeeBoundary(
-                it.name,
-                it.email,
-                //no password here :)
-                it.birthTimestamp,
-                it.roles
-            )
-        }.toList()
+        return employeesOfDomain
+            .map {EmployeeBoundary(it)}
+            .toList()
     }
 
     override fun getByRole(role:String,page:Int,size:Int) : List<EmployeeBoundary>{
@@ -118,42 +104,27 @@ class EmployeeServiceImpl(
         val pageable = PageRequest.of(page,size, Sort.by(Sort.Direction.DESC,"id"))
 
         return employeeCrud.findAllByRolesContains(EmployeeBoundary.rolesToString(listOf(role.trim()))!!,pageable)
-            .stream().map {
-                EmployeeBoundary(
-                    it.name,
-                    it.email,
-                    //no password here :)
-                    it.birthTimestamp,
-                    it.roles
-                )
-            }.toList()
+            .stream()
+            .map {EmployeeBoundary(it)}
+            .toList()
     }
 
     override fun getByAge(age:Int,page: Int,size: Int) : List<EmployeeBoundary>{
-        /*
-        פעולה שמחזירה את פרטי העובדים, שהגיל שלהם בשנים, הועבר כפרמטר ageInYears.
+        /*פעולה שמחזירה את פרטי העובדים, שהגיל שלהם בשנים, הועבר כפרמטר ageInYears.
         למשל, אם פעולה זו הופעלה, כדי לחפש עובדים בני 30 ב-1 באפריל 2025, היא תחזיר את כל העובדים שיום הולדתם ה-30 חל בין 1 באפריל 2024 ל-1 באפריל 2025
         פעולה זו תומכת ב-pagination. שימו לב כי גם פעולה זו לא חושפת סיסמאות.
-        אם לא קיימים בשירות עובדים בגיל המבוקש, הפעולה תחזיר מערך ריק
-         */
-
-
+        אם לא קיימים בשירות עובדים בגיל המבוקש, הפעולה תחזיר מערך ריק*/
         val pageable = PageRequest.of(page,size, Sort.by(Sort.Direction.DESC,"id"))
 
         val currentDateTime: LocalDateTime = LocalDateTime.now()
-        val minForAge = currentDateTime.minusYears(age.toLong())
-        val maxForAge = minForAge.plusYears(1).minusNanos(1)
+        val minForAge = currentDateTime.minusYears((age+1).toLong())
+        val maxForAge = minForAge.plusYears(1).minusDays(1)
 
         return employeeCrud
             .findAllByBirthTimestampBetween(minForAge,maxForAge,pageable)
             .stream()
-            .map {EmployeeBoundary(
-                it.name,
-                it.email,
-                //no password here :)
-                it.birthTimestamp,
-                it.roles
-            ) }.toList()
+            .map {EmployeeBoundary(it)}
+            .toList()
     }
 
     override fun deleteAll() {
@@ -166,7 +137,6 @@ class EmployeeServiceImpl(
     //////////////////////////
     //  utils
     /////////////////////////
-
     fun getDomain(email: String): String{
         if(!email.matches(Regex("^[A-Za-z0-9]+@.+$")))
             throw(InvalidEmailException("invalid email format"))

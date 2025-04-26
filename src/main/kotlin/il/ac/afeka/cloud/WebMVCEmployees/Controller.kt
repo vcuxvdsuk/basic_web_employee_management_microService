@@ -44,6 +44,9 @@ class Controller(
         @RequestParam("page", defaultValue = "0") page:Int,
         @RequestParam("size", defaultValue = "5") size:Int
         ):List<EmployeeBoundary>{
+        if (size<1 || page<0){
+            throw IllegalArgumentException("invalid arguments")
+        }
         return  employeeService.getAll(page,size)
     }
 
