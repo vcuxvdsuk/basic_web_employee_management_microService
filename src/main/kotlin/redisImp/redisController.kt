@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*
 @RestController
 @RequestMapping(path = [ "/employees"])
 class RedisController(
-    val employeeService: RedisEmployeeService
+    val employeeService: RedisEmployeeServiceImp
 ) {
 
     @PostMapping(

@@ -8,7 +8,7 @@ import java.time.LocalDateTime
 import java.time.ZoneOffset
 
 @Service
-data class RedisEmployeeService(
+data class RedisEmployeeServiceImp(
     private val repo: RedisEmployeeRepository,
     private val redisTemplate: RedisTemplate<String, String> // Inject RedisTemplate for direct Redis access
 ) : EmployeeService {
@@ -33,7 +33,7 @@ data class RedisEmployeeService(
         // Save to Redis Hash
         redisTemplate.opsForHash<String, String>().putAll(employeeHashKey, employeeData)
 
-        // Save to Sorted Set by Age (for efficient age-based queries)
+        // Save to Sorted Set by Age
         val birthDateAsScore = birthDateTime.toEpochSecond(ZoneOffset.UTC)
         redisTemplate.opsForZSet().add("employeeByAge", employee.email, birthDateAsScore.toDouble())
 

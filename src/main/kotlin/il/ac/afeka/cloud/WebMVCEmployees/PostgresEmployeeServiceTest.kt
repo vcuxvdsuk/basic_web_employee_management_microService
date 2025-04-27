@@ -34,7 +34,7 @@ fun main() {
     val postStart = System.currentTimeMillis()
     restTemplate.delete("http://localhost:8081/employees")
 
-    for (i in 0 until 100) {
+    for (i in 0 until 1000) {
         val employee = EmployeeBoundary(
             email = "test$i@example.com",
             name = "John",
@@ -52,12 +52,30 @@ fun main() {
         }
     }
     val postEnd = System.currentTimeMillis()
-    println("⏱️ PostgreSQL API POST (100 inserts) took ${postEnd - postStart} ms")
+    println("⏱️ PostgreSQL API POST (1000 inserts) took ${postEnd - postStart} ms")
 
-    // Repeated GET requests to simulate caching scenario
+    // Repeated GET requests to simulate caching scenario //size 50
     val repeatedEmails = listOf(
         "test0@example.com", "test0@example.com", "test0@example.com",
         "test50@example.com", "test50@example.com",
+        "test99@example.com", "test99@example.com",
+        "test20@example.com", "test70@example.com",
+        "test0@example.com", "test50@example.com",
+        "test0@example.com", "test0@example.com", "test0@example.com",
+        "test50@example.com", "test50@example.com",
+        "test99@example.com", "test99@example.com",
+        "test20@example.com", "test70@example.com",
+        "test0@example.com", "test50@example.com",
+        "test0@example.com", "test0@example.com", "test0@example.com",
+        "test50@example.com", "test50@example.com",
+        "test99@example.com", "test99@example.com",
+        "test20@example.com", "test70@example.com",
+        "test0@example.com", "test50@example.com",
+        "test0@example.com", "test0@example.com", "test0@example.com",
+        "test50@example.com", "test50@example.com",
+        "test99@example.com", "test99@example.com",
+        "test20@example.com", "test70@example.com",
+        "test0@example.com", "test50@example.com",
         "test99@example.com", "test99@example.com",
         "test20@example.com", "test70@example.com",
         "test0@example.com", "test50@example.com"
@@ -70,7 +88,7 @@ fun main() {
                 "http://localhost:8081/employees/$email?password=Password123",
                 String::class.java
             )
-            println("📥 GET $email → ${response?.substring(0..minOf(50, response.length - 1))}...")
+            //println("📥 GET $email → ${response?.substring(0..minOf(50, response.length - 1))}...")
         } catch (e: Exception) {
             println("❌ GET failed for $email: ${e.message}")
         }
